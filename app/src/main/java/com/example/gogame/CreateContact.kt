@@ -3,6 +3,7 @@ package com.example.gogame
 import android.Manifest
 import android.app.Activity
 import android.content.ActivityNotFoundException
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.database.Cursor
@@ -18,19 +19,24 @@ import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.databinding.DataBindingUtil
+import androidx.lifecycle.ViewModelProvider
 import com.example.gogame.databinding.ActivityCreateContactBinding
 import com.example.gogame.databinding.PhotoBottomSheetBinding
+import com.example.gogame.model.ContactViewModel
+import com.example.gogame.model.MainViewModel
 import com.example.gogame.model.User
 import com.example.shaadi.room.UserRepository
 import com.google.android.material.bottomsheet.BottomSheetDialog
+import com.kira.store.mvvm.crm.factory.UserFactory
 import java.io.File
 
 
-class CreateContact : AppCompatActivity(), View.OnClickListener {
+class CreateContact() : AppCompatActivity(), View.OnClickListener {
 
     lateinit var binding: ActivityCreateContactBinding
     lateinit var dialog: BottomSheetDialog
     lateinit var bottomBinding: PhotoBottomSheetBinding
+    lateinit var contactViewModel: ContactViewModel
     var user = User()
     var id: Long = -1
 
@@ -40,6 +46,7 @@ class CreateContact : AppCompatActivity(), View.OnClickListener {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = DataBindingUtil.setContentView(this, R.layout.activity_create_contact)
+        contactViewModel = ViewModelProvider(this, UserFactory(applicationContext)).get(ContactViewModel::class.java)
 
         binding.saveContact.setOnClickListener(this)
         binding.trashContact.setOnClickListener(this)
@@ -57,19 +64,23 @@ class CreateContact : AppCompatActivity(), View.OnClickListener {
 
         id = intent.getLongExtra("id",-1)
         if (id != (-1).toLong()) {
-            user = UserRepository(this).getUser(id)
             binding.header.setText("Edit Contact")
-            binding.user = user
-            if (user.thumbnail == null) {
-                bottomBinding.removeBox.visibility = View.GONE
-            }
-            if (user.favourite) {
-                binding.favorite.setImageDrawable(resources.getDrawable(R.drawable.dislike))
-            } else {
-                binding.favorite.setImageDrawable(resources.getDrawable(R.drawable.like))
-            }
+            contactViewModel.newLiveData.observe(this, {
+                user = it
+                binding.user = it
+                if (it.thumbnail == null) {
+                    bottomBinding.removeBox.visibility = View.GONE
+                }
+                if (it.favourite) {
+                    binding.favorite.setImageDrawable(resources.getDrawable(R.drawable.dislike))
+                } else {
+                    binding.favorite.setImageDrawable(resources.getDrawable(R.drawable.like))
+                }
+                hideRemove(it)
+            })
+            contactViewModel.getUser(id)
         }
-        hideRemove(user)
+
 
     }
 
@@ -94,17 +105,17 @@ class CreateContact : AppCompatActivity(), View.OnClickListener {
 
 
                 if (id != (-1).toLong()) {
-                    UserRepository(this).updateUser(user)
+                    contactViewModel.updateUser(user)
                 }
                 else {
-                    UserRepository(this).insertUser(user)
+                    contactViewModel.insertUser(user)
                 }
 
                 startActivity(Intent(this, MainActivity::class.java))
             }
 
             binding.trashContact -> {
-                UserRepository(this).deleteUser(user)
+                contactViewModel.deleteUser(user)
                 startActivity(Intent(this, MainActivity::class.java))
             }
 
